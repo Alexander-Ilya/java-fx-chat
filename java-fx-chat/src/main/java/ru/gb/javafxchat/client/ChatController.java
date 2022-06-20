@@ -11,7 +11,7 @@ public class ChatController {
     private TextArea messageArea;
     @FXML
     private TextField messageField;
-    private ChatClient client;
+    private final ChatClient client;
 
     public ChatController() {
         this.client = new ChatClient(this);
