@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public enum Command {
+public enum Command{
     AUTH("/auth") { // /auth login1 pass1
 
         @Override
@@ -64,6 +64,13 @@ public enum Command {
         public String[] parse(String commandText) {
             final String[] split = commandText.split(TOKEN_DELIMITER, 2);
             return new String[]{split[1]};
+        }
+    },
+
+    STOP("/stop") {
+        @Override
+        public String[] parse(String commandText) {
+            return new String[0];
         }
     };
 
