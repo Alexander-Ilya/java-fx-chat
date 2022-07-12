@@ -7,9 +7,9 @@ import java.util.List;
 public class InMemoryAuthService implements AuthService {
 
     private static class UserData {
-        private String nick;
-        private String login;
-        private String password;
+        private final String nick;
+        private final String login;
+        private final String password;
 
         public UserData(String nick, String login, String password) {
             this.nick = nick;
@@ -30,7 +30,7 @@ public class InMemoryAuthService implements AuthService {
         }
     }
 
-    private List<UserData> users;
+    private final List<UserData> users;
 
     public InMemoryAuthService() {
         users = new ArrayList<>();

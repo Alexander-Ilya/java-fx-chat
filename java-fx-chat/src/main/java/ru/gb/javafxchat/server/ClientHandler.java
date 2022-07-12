@@ -9,12 +9,14 @@ import java.util.Arrays;
 import ru.gb.javafxchat.Command;
 
 public class ClientHandler {
+    private static final int AUTH_TIMEOUT = 120000;
     private Socket socket;
     private ChatServer server;
     private DataInputStream in;
     private DataOutputStream out;
     private String nick;
     private AuthService authService;
+    private Thread timeoutThread;
 
     public ClientHandler(Socket socket, ChatServer server, AuthService authService) {
         try {
@@ -23,10 +25,23 @@ public class ClientHandler {
             this.authService = authService;
             this.in = new DataInputStream(socket.getInputStream());
             this.out = new DataOutputStream(socket.getOutputStream());
+
+            this.timeoutThread = new Thread(() -> {
+                try {
+                    Thread.sleep(AUTH_TIMEOUT);
+                    sendMessage(Command.STOP); // Если в другом потоке не будет вызван метод interrupt, то мы попадем сюда
+                } catch (InterruptedException e) {
+                    // В другом потоке была успешная авторизация
+                    System.out.println("Успешная авторизация");;
+                }
+            });
+            timeoutThread.start();
+
             new Thread(() -> {
                 try {
-                    authenticate();
-                    readMessages();
+                    if (authenticate()) {
+                        readMessages();
+                    }
                 } finally {
                     closeConnection();
                 }
@@ -35,47 +50,41 @@ public class ClientHandler {
             e.printStackTrace();
         }
     }
-
-    private void authenticate() {
+    private boolean authenticate() {
         while (true) {
             try {
-                String nick = null;
                 final String message = in.readUTF();
                 final Command command = Command.getCommand(message);
-                System.out.println("Command.getCommand(message) " + command);
+                if (command == Command.END) {
+                    return false;
+                }
                 if (command == Command.AUTH) {
                     final String[] params = command.parse(message);
-                    System.out.println("ClientHandler "+Arrays.toString(params));
-                    if (params.length == 0) {
-                        continue;
+                    final String login = params[0];
+                    final String password = params[1];
+                    final String nick = authService.getNickByLoginAndPassword(login, password);
+                    if (nick != null) {
+                        if (server.isNickBusy(nick)) {
+                            sendMessage(Command.ERROR, "Пользователь уже авторизован");
+                            continue;
+                        }
+                        this.timeoutThread.interrupt(); // при вызове этого метода у спящего треда будет брошено InterruptedException
+                        sendMessage(Command.AUTHOK, nick);
+                        this.nick = nick;
+                        server.broadcast(Command.MESSAGE, "Пользователь " + nick + " зашел в чат");
+                        server.subscribe(this);
+                        return true;
                     } else {
-                        final String login = params[0];
-                        System.out.println(login);
-                        final String password = params[1];
-                        System.out.println(password);
-                        nick = authService.getNickByLoginAndPassword(login, password);
-
+                        sendMessage(Command.ERROR, "Неверные логин и пароль");
                     }
-                }
-                if (nick != null) {
-                    if (server.isNickBusy(nick)) {
-                        sendMessage(Command.ERROR, "Пользователь уже авторизован");
-                        continue;
-                    }
-                    sendMessage(Command.AUTHOK, nick);
-                    this.nick = nick;
-                    server.broadcast(Command.MESSAGE, "Пользователь " + nick + " зашел в чат");
-                    server.subscribe(this);
-                    break;
-                } else {
-                    sendMessage(Command.ERROR, "Неверные логин и пароль");
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
         }
     }
+
+
 
     public void sendMessage(Command command, String... params) {
         sendMessage(command.collectMessage(params));

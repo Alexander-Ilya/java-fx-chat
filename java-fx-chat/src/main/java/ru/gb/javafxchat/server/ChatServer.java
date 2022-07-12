@@ -31,26 +31,26 @@ public class ChatServer {
         }
     }
 
-    public void subscribe(ClientHandler client) {
-        clients.put(client.getNick(), client);
-        broadcastClientsList();
-    }
-
     public boolean isNickBusy(String nick) {
         return clients.get(nick) != null;
-    }
-
-    private void broadcastClientsList() {
-        final String nicks = clients.values().stream()
-                .map(ClientHandler::getNick)
-                .collect(Collectors.joining(" "));
-        broadcast(Command.CLIENTS, nicks);
     }
 
     public void broadcast(Command command, String message) {
         for (ClientHandler client : clients.values()) {
             client.sendMessage(command, message);
         }
+    }
+
+    private void broadcastClientsList() {
+        final String nicks = clients.values().stream() //берём все значения мапы clients  и преобразуем в стрим у
+                .map(ClientHandler::getNick) // .мар - к каждому элементу стрима применяет функцию, в данном случае у кождого ClientHandler берём getNick
+                .collect(Collectors.joining(" "));// джойним все ники через пробел
+        broadcast(Command.CLIENTS, nicks);
+    }
+
+    public void subscribe(ClientHandler client) {
+        clients.put(client.getNick(), client);
+        broadcastClientsList();
     }
 
     public void unsubscribe(ClientHandler client) {

@@ -37,7 +37,7 @@ public class ChatClient {
 
     }
 
-    private void waitAuth() throws IOException {
+    private boolean waitAuth() throws IOException {
         while (true) {
             final String message = in.readUTF();
             final Command command = getCommand(message);
@@ -46,10 +46,21 @@ public class ChatClient {
                 final String nick = params[0];
                 controller.setAuth(true);
                 controller.addMessage("Успешная авторизация под ником " + nick);
-                break;
+                return true;
             }
             if (command == ERROR) {
                 Platform.runLater(() -> controller.showError(params[0]));
+                continue;
+            }
+            if (command == STOP) {
+                Platform.runLater(() -> controller.showError("Истекло время на авторизацию, перезапустите приложение"));
+                try {
+                    Thread.sleep(5000); //5 секунд вывод предупреждения
+                    sendMessage(END);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                return false;
             }
         }
     }
